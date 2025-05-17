@@ -88,7 +88,7 @@ const Index = () => {
           messages: [
             {
               role: 'system',
-              content: 'Ubah kalimat berikut menjadi data penjualan dalam format JSON. Hanya untuk penjualan. Format: nama barang, jumlah, harga satuan. Contoh: [{"barang": "Aqua", "jumlah": 2, "harga": 5000}]'
+              content: 'Ekstrak data penjualan dari percakapan antara pembeli dan penjual menjadi data dalam format JSON. Hanya fokus pada barang yang TERJUAL (bukan hanya ditanyakan). Format: nama barang, jumlah, harga satuan. Contoh: [{"barang": "Aqua", "jumlah": 2, "harga": 5000}]. Hanya ambil barang yang benar-benar dibeli.'
             },
             {
               role: 'user',

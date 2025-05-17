@@ -147,7 +147,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) =
   const useDemoMode = () => {
     toast.info('Menggunakan teks demo untuk simulasi');
     setTimeout(() => {
-      setTranscript('Terjual 2 botol Aqua seharga 5000 per botol dan 3 bungkus Indomie goreng seharga 3500 per bungkus');
+      setTranscript('Pembeli: Pak, saya mau beli 2 Aqua. Penjual: Iya, 2 Aqua jadi 10.000 rupiah. Pembeli: Sekalian 3 bungkus Indomie goreng. Penjual: Oke, ditambah 3 Indomie goreng 10.500, jadi totalnya 20.500 rupiah');
       setIsRecording(false);
     }, 1500);
   };
@@ -166,11 +166,11 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) =
     toast.success('Rekaman selesai');
   };
 
-  // Demo text examples for quick testing
+  // Demo text examples for quick testing - updated to be conversational
   const demoTexts = [
-    'Terjual 2 botol Aqua seharga 5000 per botol dan 3 bungkus Indomie goreng seharga 3500 per bungkus',
-    'Hari ini terjual 5 Sampoerna 16 ribu per bungkus dan 2 Gudang Garam 22 ribu per bungkus',
-    'Pelanggan membeli 3 Teh Pucuk harga 4000 rupiah per botol dan 2 Chitato 10 ribu rupiah per bungkus'
+    'Pembeli: Pak, saya mau beli 2 Aqua. Penjual: Iya, 2 Aqua jadi 10.000 rupiah. Pembeli: Sekalian 3 bungkus Indomie goreng. Penjual: Oke, ditambah 3 Indomie goreng 10.500, jadi totalnya 20.500 rupiah',
+    'Pembeli: Bu, Sampoerna 1 bungkus. Penjual: Sampoerna 16.000 ya. Pembeli: Sekalian Gudang Garam 2 bungkus. Penjual: Gudang Garam 2 bungkus 44.000. Totalnya jadi 60.000 rupiah',
+    'Pembeli: Mau beli Teh Pucuk 3 botol, harganya berapa? Penjual: 3 Teh Pucuk jadi 12.000 rupiah. Pembeli: Saya juga mau Chitato 2 bungkus. Penjual: Oke, 2 Chitato 20.000. Jadi total semuanya 32.000 rupiah'
   ];
   
   const usePredefinedDemo = (index: number) => {
