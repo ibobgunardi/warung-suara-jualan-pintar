@@ -1,119 +1,126 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Mic, MicOff, Check } from 'lucide-react';
+import { Mic, MicOff, Check, Loader2 } from 'lucide-react';
 
 interface VoiceRecorderProps {
   onTranscriptComplete: (transcript: string) => void;
 }
 
-// Mock implementation for web preview
-// In a real Expo/React Native app, we would use react-native-voice or expo-speech
 const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [isInitializing, setIsInitializing] = useState(false);
+  const recognitionRef = useRef<any>(null);
   
-  // For web preview, we'll use the Web Speech API
-  // Note: In a real React Native app, this would be replaced with react-native-voice
-  useEffect(() => {
-    let recognition: any = null;
-    
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      // @ts-ignore - TypeScript doesn't know about the Web Speech API
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'id-ID'; // Indonesian language
-      
-      recognition.onresult = (event: any) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
-        
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-        
-        setTranscript(finalTranscript || interimTranscript);
-      };
-      
-      recognition.onerror = (event: any) => {
-        console.error('Speech recognition error', event.error);
-        toast.error(`Error rekaman: ${event.error}`);
-        setIsRecording(false);
-      };
+  // Initialize speech recognition with improved settings
+  const initializeSpeechRecognition = () => {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      toast.error('Browser tidak mendukung pengenalan suara');
+      return null;
     }
     
+    // @ts-ignore - TypeScript doesn't know about the Web Speech API
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    // Improved configuration for better accuracy
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'id-ID'; // Indonesian language
+    recognition.maxAlternatives = 3; // Get multiple alternatives for better accuracy
+    
+    // Enhanced result handling
+    recognition.onresult = (event: any) => {
+      let interimTranscript = '';
+      let finalTranscript = '';
+      
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          // Get the most confident result
+          finalTranscript += event.results[i][0].transcript;
+        } else {
+          interimTranscript += event.results[i][0].transcript;
+        }
+      }
+      
+      setTranscript(finalTranscript || interimTranscript);
+    };
+    
+    // Improved error handling
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error', event.error);
+      toast.error(`Error rekaman: ${event.error}`);
+      setIsRecording(false);
+      setIsInitializing(false);
+    };
+    
+    // Handle when recognition stops unexpectedly
+    recognition.onend = () => {
+      if (isRecording) {
+        try {
+          recognition.start();
+        } catch (error) {
+          console.error('Failed to restart recognition:', error);
+        }
+      }
+    };
+    
+    return recognition;
+  };
+  
+  // Cleanup effect
+  useEffect(() => {
     return () => {
-      if (recognition) {
-        recognition.abort();
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (error) {
+          console.error('Error stopping recognition during cleanup:', error);
+        }
       }
     };
   }, []);
   
-  const startRecording = () => {
+  const startRecording = async () => {
+    setIsInitializing(true);
     setTranscript('');
     
-    // Check if browser supports speech recognition
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      // @ts-ignore - TypeScript doesn't know about the Web Speech API
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'id-ID'; // Indonesian language
+    try {
+      if (!recognitionRef.current) {
+        recognitionRef.current = initializeSpeechRecognition();
+      }
       
-      recognition.onresult = (event: any) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
-        
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-        
-        setTranscript(finalTranscript || interimTranscript);
-      };
-      
-      recognition.onend = () => {
-        if (isRecording) {
-          recognition.start();
-        }
-      };
-      
-      recognition.start();
-      setIsRecording(true);
-      
-      // Store recognition instance in window to access it later
-      // @ts-ignore
-      window.recognition = recognition;
-      
-      toast.success('Mulai merekam...');
-    } else {
-      toast.error('Browser tidak mendukung pengenalan suara');
-      
-      // Mock data for testing when speech recognition is not available
-      setTimeout(() => {
-        setTranscript('Terjual 2 botol Aqua seharga 5000 per botol dan 3 bungkus Indomie goreng seharga 3500 per bungkus');
-      }, 2000);
+      if (recognitionRef.current) {
+        await recognitionRef.current.start();
+        setIsRecording(true);
+        toast.success('Mulai merekam...');
+      } else {
+        // Mock data for testing when speech recognition is not available
+        toast.info('Menggunakan data simulasi untuk demo');
+        setTimeout(() => {
+          setTranscript('Terjual 2 botol Aqua seharga 5000 per botol dan 3 bungkus Indomie goreng seharga 3500 per bungkus');
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+      toast.error('Gagal memulai rekaman suara');
+    } finally {
+      setIsInitializing(false);
     }
   };
   
   const stopRecording = () => {
-    // @ts-ignore
-    if (window.recognition) {
-      // @ts-ignore
-      window.recognition.stop();
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (error) {
+        console.error('Error stopping recognition:', error);
+      }
     }
+    
     setIsRecording(false);
     onTranscriptComplete(transcript);
     toast.success('Rekaman selesai');
@@ -131,9 +138,14 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) =
               variant="default" 
               size="lg" 
               className="px-8 py-6 h-auto w-full text-lg"
+              disabled={isInitializing}
             >
-              <Mic className="mr-2 h-6 w-6" />
-              Mulai Rekam
+              {isInitializing ? (
+                <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+              ) : (
+                <Mic className="mr-2 h-6 w-6" />
+              )}
+              {isInitializing ? 'Mempersiapkan...' : 'Mulai Rekam'}
             </Button>
           ) : (
             <Button 
