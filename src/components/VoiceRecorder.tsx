@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Mic, MicOff, Check, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Check, Loader2, FileText } from 'lucide-react';
 
 interface VoiceRecorderProps {
   onTranscriptComplete: (transcript: string) => void;
@@ -15,7 +15,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) =
   const [isInitializing, setIsInitializing] = useState(false);
   const recognitionRef = useRef<any>(null);
   
-  // Initialize speech recognition with improved settings
+  // Enhanced speech recognition with optimal settings for Indonesian
   const initializeSpeechRecognition = () => {
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       toast.error('Browser tidak mendukung pengenalan suara');
@@ -26,21 +26,25 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) =
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     
-    // Improved configuration for better accuracy
+    // Optimized configuration for Indonesian language
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'id-ID'; // Indonesian language
-    recognition.maxAlternatives = 3; // Get multiple alternatives for better accuracy
+    recognition.lang = 'id-ID'; // Indonesian language enforced
+    recognition.maxAlternatives = 5; // Increased alternatives for better accuracy
     
-    // Enhanced result handling
+    // Enhanced result handling with confidence checking
     recognition.onresult = (event: any) => {
       let interimTranscript = '';
       let finalTranscript = '';
       
       for (let i = event.resultIndex; i < event.results.length; ++i) {
+        // Debug logging to monitor recognition quality
+        console.log(`Recognition confidence: ${event.results[i][0].confidence}`);
+        
         if (event.results[i].isFinal) {
-          // Get the most confident result
+          // Get the result with highest confidence
           finalTranscript += event.results[i][0].transcript;
+          console.log("Final transcript:", finalTranscript);
         } else {
           interimTranscript += event.results[i][0].transcript;
         }
@@ -49,21 +53,50 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) =
       setTranscript(finalTranscript || interimTranscript);
     };
     
-    // Improved error handling
+    // Improved error handling with specific error messages
     recognition.onerror = (event: any) => {
-      console.error('Speech recognition error', event.error);
-      toast.error(`Error rekaman: ${event.error}`);
+      console.error('Speech recognition error', event.error, event);
+      
+      let errorMsg = 'Error rekaman';
+      switch (event.error) {
+        case 'network':
+          errorMsg = 'Masalah jaringan';
+          break;
+        case 'not-allowed':
+          errorMsg = 'Akses mikrofon ditolak';
+          break;
+        case 'aborted':
+          errorMsg = 'Rekaman dibatalkan';
+          break;
+        case 'audio-capture':
+          errorMsg = 'Mikrofon tidak terdeteksi';
+          break;
+        case 'no-speech':
+          errorMsg = 'Tidak ada suara terdeteksi';
+          break;
+        default:
+          errorMsg = `Error: ${event.error}`;
+      }
+      
+      toast.error(errorMsg);
       setIsRecording(false);
       setIsInitializing(false);
     };
     
-    // Handle when recognition stops unexpectedly
+    // Auto-restart recognition if it stops unexpectedly
     recognition.onend = () => {
+      console.log("Recognition ended");
       if (isRecording) {
+        console.log("Attempting to restart recognition");
         try {
-          recognition.start();
+          // Small timeout to prevent rapid restarts
+          setTimeout(() => {
+            recognition.start();
+            console.log("Recognition restarted");
+          }, 200);
         } catch (error) {
           console.error('Failed to restart recognition:', error);
+          setIsRecording(false);
         }
       }
     };
@@ -98,18 +131,25 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) =
         setIsRecording(true);
         toast.success('Mulai merekam...');
       } else {
-        // Mock data for testing when speech recognition is not available
-        toast.info('Menggunakan data simulasi untuk demo');
-        setTimeout(() => {
-          setTranscript('Terjual 2 botol Aqua seharga 5000 per botol dan 3 bungkus Indomie goreng seharga 3500 per bungkus');
-        }, 2000);
+        // Demo mode when speech recognition fails
+        useDemoMode();
       }
     } catch (error) {
       console.error('Failed to start recording:', error);
-      toast.error('Gagal memulai rekaman suara');
+      toast.error('Gagal memulai rekaman suara, menggunakan mode demo');
+      useDemoMode();
     } finally {
       setIsInitializing(false);
     }
+  };
+  
+  // New demo mode functionality
+  const useDemoMode = () => {
+    toast.info('Menggunakan teks demo untuk simulasi');
+    setTimeout(() => {
+      setTranscript('Terjual 2 botol Aqua seharga 5000 per botol dan 3 bungkus Indomie goreng seharga 3500 per bungkus');
+      setIsRecording(false);
+    }, 1500);
   };
   
   const stopRecording = () => {
@@ -124,6 +164,19 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) =
     setIsRecording(false);
     onTranscriptComplete(transcript);
     toast.success('Rekaman selesai');
+  };
+
+  // Demo text examples for quick testing
+  const demoTexts = [
+    'Terjual 2 botol Aqua seharga 5000 per botol dan 3 bungkus Indomie goreng seharga 3500 per bungkus',
+    'Hari ini terjual 5 Sampoerna 16 ribu per bungkus dan 2 Gudang Garam 22 ribu per bungkus',
+    'Pelanggan membeli 3 Teh Pucuk harga 4000 rupiah per botol dan 2 Chitato 10 ribu rupiah per bungkus'
+  ];
+  
+  const usePredefinedDemo = (index: number) => {
+    setTranscript(demoTexts[index]);
+    onTranscriptComplete(demoTexts[index]);
+    toast.success('Demo teks berhasil dipilih');
   };
   
   return (
@@ -177,6 +230,25 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) =
             Gunakan Transkrip Ini
           </Button>
         )}
+
+        {/* Demo text section for testing */}
+        <div className="mt-4">
+          <h4 className="text-sm font-medium text-gray-600 mb-2">Teks Demo untuk Pengujian:</h4>
+          <div className="flex flex-col gap-2">
+            {demoTexts.map((text, i) => (
+              <Button 
+                key={i}
+                variant="outline" 
+                size="sm" 
+                className="justify-start text-left text-xs h-auto py-2"
+                onClick={() => usePredefinedDemo(i)}
+              >
+                <FileText className="h-3 w-3 mr-2 flex-shrink-0" />
+                <span className="truncate">{text.substring(0, 50)}...</span>
+              </Button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
