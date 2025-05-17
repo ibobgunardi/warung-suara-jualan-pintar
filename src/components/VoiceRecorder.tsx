@@ -32,10 +32,18 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) =
     recognition.lang = 'id-ID'; // Indonesian language enforced
     recognition.maxAlternatives = 5; // Increased alternatives for better accuracy
     
+    // Further optimized settings for better recognition
+    recognition.onnomatch = () => {
+      console.log("No speech detected or understood");
+    };
+    
     // Enhanced result handling with confidence checking
     recognition.onresult = (event: any) => {
       let interimTranscript = '';
       let finalTranscript = '';
+      
+      // Additional logging for debugging recognition quality
+      console.log(`Results length: ${event.results.length}`);
       
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         // Debug logging to monitor recognition quality
@@ -44,13 +52,24 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) =
         if (event.results[i].isFinal) {
           // Get the result with highest confidence
           finalTranscript += event.results[i][0].transcript;
-          console.log("Final transcript:", finalTranscript);
+          console.log("Final transcript segment:", event.results[i][0].transcript);
         } else {
           interimTranscript += event.results[i][0].transcript;
         }
       }
       
-      setTranscript(finalTranscript || interimTranscript);
+      // Update the transcript with either final or interim results
+      const updatedTranscript = finalTranscript || interimTranscript;
+      
+      if (updatedTranscript) {
+        setTranscript(prevTranscript => {
+          // Only append if we have new content
+          if (finalTranscript && !prevTranscript.includes(finalTranscript)) {
+            return (prevTranscript + ' ' + finalTranscript).trim();
+          }
+          return prevTranscript;
+        });
+      }
     };
     
     // Improved error handling with specific error messages
@@ -83,20 +102,23 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) =
       setIsInitializing(false);
     };
     
-    // Auto-restart recognition if it stops unexpectedly
+    // Enhanced auto-restart recognition with better error handling
     recognition.onend = () => {
-      console.log("Recognition ended");
+      console.log("Recognition session ended");
       if (isRecording) {
         console.log("Attempting to restart recognition");
         try {
-          // Small timeout to prevent rapid restarts
+          // Slightly longer timeout to prevent rapid restarts causing issues
           setTimeout(() => {
-            recognition.start();
-            console.log("Recognition restarted");
-          }, 200);
+            if (isRecording) {
+              recognition.start();
+              console.log("Recognition restarted successfully");
+            }
+          }, 500);
         } catch (error) {
           console.error('Failed to restart recognition:', error);
           setIsRecording(false);
+          toast.error('Rekaman berhenti secara tak terduga');
         }
       }
     };
@@ -147,7 +169,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) =
   const useDemoMode = () => {
     toast.info('Menggunakan teks demo untuk simulasi');
     setTimeout(() => {
-      setTranscript('Pembeli: Pak, saya mau beli 2 Aqua. Penjual: Iya, 2 Aqua jadi 10.000 rupiah. Pembeli: Sekalian 3 bungkus Indomie goreng. Penjual: Oke, ditambah 3 Indomie goreng 10.500, jadi totalnya 20.500 rupiah');
+      setTranscript('Mau beli 2 Aqua, 2 Aqua jadi 10.000 rupiah. Sekalian 3 bungkus Indomie goreng, ditambah 3 Indomie goreng 10.500, jadi totalnya 20.500 rupiah');
       setIsRecording(false);
     }, 1500);
   };
@@ -166,11 +188,11 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) =
     toast.success('Rekaman selesai');
   };
 
-  // Demo text examples for quick testing - updated to be conversational
+  // Demo text examples updated to be conversational without prefixes
   const demoTexts = [
-    'Pembeli: Pak, saya mau beli 2 Aqua. Penjual: Iya, 2 Aqua jadi 10.000 rupiah. Pembeli: Sekalian 3 bungkus Indomie goreng. Penjual: Oke, ditambah 3 Indomie goreng 10.500, jadi totalnya 20.500 rupiah',
-    'Pembeli: Bu, Sampoerna 1 bungkus. Penjual: Sampoerna 16.000 ya. Pembeli: Sekalian Gudang Garam 2 bungkus. Penjual: Gudang Garam 2 bungkus 44.000. Totalnya jadi 60.000 rupiah',
-    'Pembeli: Mau beli Teh Pucuk 3 botol, harganya berapa? Penjual: 3 Teh Pucuk jadi 12.000 rupiah. Pembeli: Saya juga mau Chitato 2 bungkus. Penjual: Oke, 2 Chitato 20.000. Jadi total semuanya 32.000 rupiah'
+    'Mau beli 2 Aqua, 2 Aqua jadi 10.000 rupiah. Sekalian 3 bungkus Indomie goreng, ditambah 3 Indomie goreng 10.500, jadi totalnya 20.500 rupiah',
+    'Sampoerna 1 bungkus, Sampoerna 16.000 ya. Sekalian Gudang Garam 2 bungkus, Gudang Garam 2 bungkus 44.000. Totalnya jadi 60.000 rupiah',
+    'Mau beli Teh Pucuk 3 botol, harganya berapa? 3 Teh Pucuk jadi 12.000 rupiah. Saya juga mau Chitato 2 bungkus. Oke, 2 Chitato 20.000. Jadi total semuanya 32.000 rupiah'
   ];
   
   const usePredefinedDemo = (index: number) => {
@@ -255,3 +277,4 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onTranscriptComplete }) =
 };
 
 export default VoiceRecorder;
+
